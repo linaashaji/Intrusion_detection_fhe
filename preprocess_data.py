@@ -3,7 +3,7 @@ from tqdm import tqdm
 from pathlib import Path
 
 
-dataset_path = Path("can-train-and-test-v1.5/hcrl-ch/test_01_DoS/DoS-test.csv")
+dataset_path = Path("can-train-and-test-v1.5/hcrl-ch/test_02_fuzzing/fuzzing-test.csv")
 dataframe = pd.read_csv(dataset_path)
 dataframe.sort_values(by="timestamp", ascending=True, inplace=True)
 

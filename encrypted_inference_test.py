@@ -8,6 +8,7 @@ import numpy as np
 from concrete.ml.torch.compile import compile_torch_model
 from concrete.ml.deployment import FHEModelClient
 import time
+from sklearn.metrics import accuracy_score, f1_score
 
 
 def process_features(data):
@@ -52,6 +53,7 @@ decoder = ae_model.decoder
 decoder.load_state_dict(torch.load("save_models/decoder.pth", weights_only=True))
 
 start = time.perf_counter()
+dummy_input = torch.randn(1, latent_size)
 compiled_decoder = compile_torch_model(
     decoder,
     dummy_input.numpy(),
@@ -63,7 +65,7 @@ print(f"Compilation time: {end - start:.4f} seconds")
 
 criterion = nn.MSELoss()
 
-
+y_pred, y_true = [], []
 encoder.eval()
 decoder.eval()
 with torch.no_grad():  # Disable gradient computation for validation
@@ -71,6 +73,7 @@ with torch.no_grad():  # Disable gradient computation for validation
     for i, data in tqdm(enumerate(val_dataloader)):
         # Client
         features = data["features"]
+        labels = data["label"]
         # Client
         latent = encoder(features)
 
@@ -83,11 +86,20 @@ with torch.no_grad():  # Disable gradient computation for validation
         )
 
         loss = criterion(decrypted_output, features)
-        val_loss += loss.item()
 
-        if i > 10:
-            break
+        pred = loss.item() > 0.05
+        gt = labels.item() > 0
 
-    avg_val_loss = val_loss / 10
+        y_pred.append(pred)
+        y_true.append(gt)
+
+    avg_val_loss = val_loss / i
 
     print(f"Test Loss after Encryption: {avg_val_loss:.4f}")
+
+
+accuracy = accuracy_score(y_true, y_pred)
+f1 = f1_score(y_true, y_pred)
+
+print(f"Accuracy: {accuracy}")
+print(f"F1 Score: {f1}")

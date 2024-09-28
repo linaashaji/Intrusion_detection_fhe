@@ -82,10 +82,7 @@ with torch.no_grad():  # Disable gradient computation for validation
         y_pred.append(pred)
         y_true.append(gt)
 
-        if i > 1000:
-            break
-
-    avg_val_loss = val_loss / i
+    avg_val_loss = val_loss / len(val_dataloader)
 
     print(f"Test Loss: {avg_val_loss:.4f}")
 
