@@ -3,20 +3,10 @@ from tqdm import tqdm
 from pathlib import Path
 
 
-def hex_to_binary(hex_number):
-    # Convert hexadecimal number to binary string
-    binary_string = int(bin(int(hex_number, 16))[2:])
-    return binary_string
-
-
-dataset_path = Path(
-    "can-train-and-test-v1.5/hcrl-ch/train_01_attack_free/attack-free.csv"
-)
+dataset_path = Path("can-train-and-test-v1.5/hcrl-ch/test_01_DoS/DoS-test.csv")
 dataframe = pd.read_csv(dataset_path)
 dataframe.sort_values(by="timestamp", ascending=True, inplace=True)
-# dataframe["arbitration_id"] = dataframe["arbitration_id"].apply(
-#     lambda x: hex_to_binary(x)
-# )
+
 
 window_size = 50
 stride = 20
