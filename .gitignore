@@ -1,0 +1,5 @@
+can-train-and-test-v1.5/
+
+.artifacts
+.vscode
+__pycache__
