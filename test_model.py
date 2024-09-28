@@ -8,6 +8,7 @@ import numpy as np
 from concrete.ml.torch.compile import compile_torch_model
 from concrete.ml.deployment import FHEModelClient
 import time
+from sklearn.metrics import accuracy_score, f1_score
 
 
 def process_features(data):
@@ -51,19 +52,10 @@ encoder.load_state_dict(torch.load("save_models/encoder.pth", weights_only=True)
 decoder = ae_model.decoder
 decoder.load_state_dict(torch.load("save_models/decoder.pth", weights_only=True))
 
-start = time.perf_counter()
-compiled_decoder = compile_torch_model(
-    decoder,
-    dummy_input.numpy(),
-    n_bits=6,
-    rounding_threshold_bits={"n_bits": 6, "method": "approximate"},
-)
-end = time.perf_counter()
-print(f"Compilation time: {end - start:.4f} seconds")
-
 criterion = nn.MSELoss()
 
 
+y_pred, y_true = [], []
 encoder.eval()
 decoder.eval()
 with torch.no_grad():  # Disable gradient computation for validation
@@ -71,23 +63,35 @@ with torch.no_grad():  # Disable gradient computation for validation
     for i, data in tqdm(enumerate(val_dataloader)):
         # Client
         features = data["features"]
+        labels = data["label"]
         # Client
         latent = encoder(features)
 
         # Server
-        decrypted_output = compiled_decoder.forward(latent.numpy(), fhe="simulate")
+        output = decoder.forward(latent)
 
         # Client
-        decrypted_output = torch.tensor(decrypted_output).view(
-            -1, ae_model.sequence_length, features.size(2)
-        )
+        output = output.view(-1, ae_model.sequence_length, features.size(2))
 
-        loss = criterion(decrypted_output, features)
+        loss = criterion(output, features)
         val_loss += loss.item()
 
-        if i > 10:
+        pred = loss.item() > 0.05
+        gt = labels.item() > 0
+
+        y_pred.append(pred)
+        y_true.append(gt)
+
+        if i > 1000:
             break
 
-    avg_val_loss = val_loss / 10
+    avg_val_loss = val_loss / i
 
-    print(f"Test Loss after Encryption: {avg_val_loss:.4f}")
+    print(f"Test Loss: {avg_val_loss:.4f}")
+
+
+accuracy = accuracy_score(y_true, y_pred)
+f1 = f1_score(y_true, y_pred)
+
+print(f"Accuracy: {accuracy}")
+print(f"F1 Score: {f1}")

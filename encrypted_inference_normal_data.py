@@ -63,13 +63,6 @@ compiled_decoder = compile_torch_model(
 end = time.perf_counter()
 print(f"Compilation time: {end - start:.4f} seconds")
 
-decoder_fhe_circuit = compiled_decoder.fhe_circuit
-# q_dummy_input = compiled_decoder.quantize_input(dummy_input.numpy())
-# encrypted_dummy_input = decoder_fhe_circuit.encrypt(q_dummy_input)
-# encrypted_dummy_output = decoder_fhe_circuit.run(encrypted_dummy_input)
-
-# decrypted_dummy_output = decoder_fhe_circuit.decrypt(encrypted_dummy_output)
-# print(f"Encryption time: {end - start:.4f} seconds")
 
 criterion = nn.MSELoss()
 
