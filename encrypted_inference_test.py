@@ -19,6 +19,15 @@ def process_features(data):
     return data
 
 
+def process_type(data):
+    type_ = data["type"]
+    if type_ == "dos":
+        data["type"] = 0
+    elif type_ == "fuzzing":
+        data["type"] = 1
+    return data
+
+
 dataset_name = "micpst/can"
 split = "test"
 
@@ -26,11 +35,12 @@ full_dataset = load_dataset(dataset_name)
 test_dataset = full_dataset[split]
 
 test_dataset = test_dataset.map(lambda raw_data: process_features(raw_data))
+test_dataset = test_dataset.map(lambda raw_data: process_type(raw_data))
 test_dataset = test_dataset.with_format("torch")
 
 
 batch_size = 1
-val_dataloader = DataLoader(test_dataset, batch_size=batch_size)
+val_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
 
 sequence_length = 50
@@ -65,7 +75,8 @@ print(f"Compilation time: {end - start:.4f} seconds")
 
 criterion = nn.MSELoss()
 
-y_pred, y_true = [], []
+y_pred_dos, y_true_dos = [], []
+y_pred_fuzz, y_true_fuzz = [], []
 encoder.eval()
 decoder.eval()
 with torch.no_grad():  # Disable gradient computation for validation
@@ -74,6 +85,7 @@ with torch.no_grad():  # Disable gradient computation for validation
         # Client
         features = data["features"]
         labels = data["label"]
+        dataset_type = data["type"]
         # Client
         latent = encoder(features)
 
@@ -87,19 +99,30 @@ with torch.no_grad():  # Disable gradient computation for validation
 
         loss = criterion(decrypted_output, features)
 
-        pred = loss.item() > 0.05
         gt = labels.item() > 0
 
-        y_pred.append(pred)
-        y_true.append(gt)
+        if dataset_type.item() == 0:
+            pred = loss.item() > 0.045
+            y_pred_dos.append(pred)
+            y_true_dos.append(gt)
+        elif dataset_type.item() == 1:
+            pred = loss.item() > 0.055
+            y_pred_fuzz.append(pred)
+            y_true_fuzz.append(gt)
 
     avg_val_loss = val_loss / i
 
     print(f"Test Loss after Encryption: {avg_val_loss:.4f}")
 
 
-accuracy = accuracy_score(y_true, y_pred)
-f1 = f1_score(y_true, y_pred)
+accuracy = accuracy_score(y_true_dos, y_pred_dos)
+f1 = f1_score(y_true_dos, y_pred_dos)
 
-print(f"Accuracy: {accuracy}")
-print(f"F1 Score: {f1}")
+print(f"DOS Accuracy: {accuracy}")
+print(f"DOS F1 Score: {f1}")
+
+accuracy = accuracy_score(y_pred_fuzz, y_true_fuzz)
+f1 = f1_score(y_pred_fuzz, y_true_fuzz)
+
+print(f"Fuzzing Accuracy: {accuracy}")
+print(f"Fuzzing F1 Score: {f1}")
