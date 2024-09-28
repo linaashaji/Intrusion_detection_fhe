@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 import numpy as np
-from concrete.ml.torch.compile import compile_torch_model
+from concrete.ml.torch.compile import build_quantized_module
 from concrete.ml.deployment import FHEModelClient
 import time
 
@@ -54,16 +54,16 @@ decoder.load_state_dict(torch.load("save_models/decoder.pth", weights_only=True)
 
 start = time.perf_counter()
 dummy_input = torch.randn(1, latent_size)
-compiled_decoder = compile_torch_model(
+compiled_decoder = build_quantized_module(
     decoder,
     dummy_input.numpy(),
     n_bits=6,
-    rounding_threshold_bits={"n_bits": 6, "method": "approximate"},
+    rounding_threshold_bits={"n_bits": 6},
 )
 end = time.perf_counter()
 print(f"Compilation time: {end - start:.4f} seconds")
 
-decoder_fhe_circuit = compiled_decoder.fhe_circuit
+# decoder_fhe_circuit = compiled_decoder.fhe_circuit
 # q_dummy_input = compiled_decoder.quantize_input(dummy_input.numpy())
 # encrypted_dummy_input = decoder_fhe_circuit.encrypt(q_dummy_input)
 # encrypted_dummy_output = decoder_fhe_circuit.run(encrypted_dummy_input)
@@ -85,14 +85,13 @@ with torch.no_grad():  # Disable gradient computation for validation
         latent = encoder(features)
 
         # Server
-        decrypted_output = compiled_decoder.forward(latent.numpy(), fhe="simulate")
-
+        output = compiled_decoder.forward(latent.numpy(), fhe="disable")
         # Client
-        decrypted_output = torch.tensor(decrypted_output).view(
+        output = torch.tensor(output).view(
             -1, ae_model.sequence_length, features.size(2)
         )
 
-        loss = criterion(decrypted_output, features)
+        loss = criterion(output, features)
         val_loss += loss.item()
 
         if i > 10:
@@ -100,4 +99,4 @@ with torch.no_grad():  # Disable gradient computation for validation
 
     avg_val_loss = val_loss / 10
 
-    print(f"Val Loss after Encryption: {avg_val_loss:.4f}")
+    print(f"Val Loss after Quantization: {avg_val_loss:.4f}")
